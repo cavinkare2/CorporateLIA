@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corporate LIA Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:#f1f0fa;color:#1e1b4b;padding:18px}
+  .app{max-width:1480px;margin:0 auto}
+
+  .header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);border-radius:24px;padding:20px 28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 12px 28px -8px rgba(30,27,75,.45);margin-bottom:26px}
+  .header-left{display:flex;align-items:center;gap:16px}
+  .logo{width:48px;height:48px;background:#fff;border-radius:14px;display:grid;place-items:center;font-weight:900;font-size:17px;color:#4338ca;box-shadow:0 6px 14px rgba(0,0,0,.25)}
+  .header-left h1{font-size:1.8rem;font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1.1}
+  .header-left .sub{font-size:.72rem;font-weight:700;color:#c7d2fe;letter-spacing:.8px;text-transform:uppercase;margin-top:3px}
+  .header-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:10px 20px;border-radius:60px;font-weight:700;font-size:.78rem;cursor:pointer;transition:.15s;letter-spacing:.2px}
+  .btn:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
+  .btn-accent{background:#2dd4bf;border-color:#2dd4bf;color:#042f2e}
+  .btn-accent:hover{background:#5eead4;border-color:#5eead4}
+
+  .loader-overlay{position:fixed;inset:0;background:#f1f0fa;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .35s;padding:20px}
+  .loader-overlay.hide{opacity:0;pointer-events:none}
+  .loader-card{background:#fff;max-width:620px;width:100%;border-radius:32px;padding:34px 28px;box-shadow:0 30px 60px -20px rgba(0,0,0,.25);text-align:center;border:1px solid #e0e7ff}
+  .loader-icon{font-size:3rem;margin-bottom:6px;animation:bob 1s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .loader-title{font-size:1.6rem;font-weight:900;color:#1e1b4b;margin-bottom:4px}
+  .loader-sub{color:#6b7280;font-weight:600;font-size:.88rem;margin-bottom:20px}
+  .loader-bar-bg{background:#e5e7eb;height:14px;border-radius:20px;overflow:hidden;margin:16px 0 10px}
+  .loader-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#4338ca,#2dd4bf);border-radius:20px;transition:width .25s}
+  .loader-percent{font-size:2.6rem;font-weight:900;color:#1e1b4b;letter-spacing:-.03em;line-height:1}
+  .loader-stage{font-size:.85rem;font-weight:700;color:#4338ca;margin-top:8px;min-height:20px}
+  .loader-error{color:#dc2626;font-weight:800}
+
+  .kpi-split{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px}
+  .kpi-block{background:#fff;border-radius:22px;padding:18px;box-shadow:0 8px 18px -8px rgba(0,0,0,.08);border:1px solid #e0e7ff}
+  .kpi-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+  .kpi-block-head h3{font-size:1.05rem;font-weight:900;color:#1e1b4b}
+  .pill{font-size:.62rem;font-weight:800;background:#e0e7ff;color:#3730a3;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+  .pill.today{background:#dcfce7;color:#166534}
+  .kpi-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .kpi-mini{background:#f8f7ff;border-radius:14px;padding:12px 10px;border-left:5px solid #4338ca;text-align:center}
+  .kpi-mini h4{font-size:.62rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;line-height:1.15}
+  .kpi-mini .value{font-size:1.45rem;font-weight:900;color:#1e1b4b;line-height:1}
+  .kpi-mini.green{border-left-color:#16a34a}.kpi-mini.green .value{color:#166534}
+  .kpi-mini.orange{border-left-color:#ea580c}.kpi-mini.orange .value{color:#9a3412}
+  .kpi-mini.purple{border-left-color:#7c3aed}.kpi-mini.purple .value{color:#5b21b6}
+  .kpi-mini.red{border-left-color:#dc2626}.kpi-mini.red .value{color:#991b1b}
+  .kpi-mini.teal{border-left-color:#0891b2}.kpi-mini.teal .value{color:#155e75}
+
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px}
+  .chart-card{background:#fff;border-radius:22px;padding:18px 18px 12px;box-shadow:0 8px 18px -8px rgba(0,0,0,.08);border:1px solid #e0e7ff}
+  .chart-card h3{font-size:1.02rem;font-weight:800;color:#1e1b4b;margin-bottom:12px;padding-left:4px}
+  .chart-wrap{position:relative;height:280px;width:100%}
+
+  .map-card,.table-card{background:#fff;border-radius:22px;padding:18px;box-shadow:0 8px 18px -8px rgba(0,0,0,.08);border:1px solid #e0e7ff;margin-bottom:26px}
+  .map-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .map-head h3,.table-card h3{font-size:1.02rem;font-weight:800;color:#1e1b4b;margin-bottom:12px}
+  .map-filters{display:flex;gap:8px;flex-wrap:wrap}
+  .map-filter-btn{padding:7px 16px;border-radius:30px;border:1px solid #c7d2fe;background:#fff;font-weight:700;font-size:.75rem;cursor:pointer;transition:.15s;color:#3730a3}
+  .map-filter-btn:hover{background:#eef2ff}
+  .map-filter-btn.active{background:#4338ca;border-color:#4338ca;color:#fff}
+  .map-filter-btn.active.green{background:#16a34a;border-color:#16a34a}
+  .map-filter-btn.active.gray{background:#475569;border-color:#475569}
+  .map-legend{display:flex;gap:18px;margin-bottom:12px;flex-wrap:wrap;font-size:.75rem;font-weight:700;color:#475569}
+  .legend-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:5px}
+  .legend-dot.green{background:#16a34a}.legend-dot.gray{background:#94a3b8}
+  .map-container{height:420px;border-radius:16px;border:1px solid #e0e7ff;overflow:hidden}
+
+  .filter-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center}
+  .filter-bar select,.filter-bar input{padding:9px 14px;border-radius:40px;border:1px solid #c7d2fe;background:#f8f7ff;font-size:.8rem;font-weight:600;color:#1e1b4b;min-width:150px;outline:none;transition:.15s}
+  .filter-bar select:focus,.filter-bar input:focus{border-color:#4338ca;background:#fff;box-shadow:0 0 0 3px rgba(67,56,202,.15)}
+  .btn-sm{padding:8px 16px;border-radius:40px;border:1px solid #c7d2fe;background:#fff;font-weight:700;font-size:.75rem;cursor:pointer;color:#3730a3}
+  .btn-sm:hover{background:#eef2ff}
+  .table-scroll{overflow-x:auto;border-radius:14px;border:1px solid #e0e7ff;max-height:560px;overflow-y:auto}
+  table{width:100%;border-collapse:collapse;font-size:.75rem;min-width:1600px}
+  th{background:#1e1b4b;color:#fff;padding:12px 10px;font-weight:700;text-align:left;position:sticky;top:0;z-index:2;white-space:nowrap;font-size:.7rem;letter-spacing:.3px}
+  td{padding:10px;border-bottom:1px solid #eef2ff;color:#1e1b4b;vertical-align:middle;white-space:nowrap}
+  tr:hover td{background:#faf9ff}
+  .badge{display:inline-block;padding:4px 10px;border-radius:40px;font-size:.65rem;font-weight:800}
+  .badge-yes{background:#dcfce7;color:#166534}
+  .badge-no{background:#fee2e2;color:#991b1b}
+  .badge-warn{background:#ffedd5;color:#9a3412}
+  .photo-thumb{width:52px;height:38px;object-fit:cover;border-radius:8px;border:1px solid #e0e7ff;cursor:pointer;background:#f1f5f9}
+  .no-photo{color:#94a3b8;font-size:.7rem;font-weight:600}
+  .pagination{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap;align-items:center;font-weight:700;color:#475569;font-size:.8rem}
+  .pagination button{background:#f5f3ff;border:1px solid #e0e7ff;padding:6px 14px;border-radius:30px;font-weight:700;cursor:pointer;font-size:.75rem;color:#1e1b4b}
+  .pagination button:hover{background:#e0e7ff}
+  .pagination button.active{background:#4338ca;border-color:#4338ca;color:#fff}
+
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;align-items:center;justify-content:center;padding:24px}
+  .modal.show{display:flex}
+  .modal img{max-width:92%;max-height:90%;border-radius:16px;background:#fff}
+  .modal-close{position:absolute;top:24px;right:36px;font-size:48px;color:#fff;cursor:pointer;line-height:1;opacity:.8}
+
+  @media(max-width:1100px){.kpi-split{grid-template-columns:1fr}.chart-grid{grid-template-columns:1fr}}
+  @media(max-width:700px){.header{flex-direction:column;align-items:flex-start}.kpi-mini-grid{grid-template-columns:repeat(2,1fr)}.filter-bar select,.filter-bar input{min-width:100%}}
+</style>
+</head>
+<body>
+
+<div class="loader-overlay" id="loaderOverlay">
+  <div class="loader-card">
+    <div class="loader-icon">🏢</div>
+    <div class="loader-title">Corporate LIA Dashboard</div>
+    <div class="loader-sub">loading live sheet data · please wait</div>
+    <div class="loader-bar-bg"><div class="loader-bar-fill" id="loaderBarFill"></div></div>
+    <div class="loader-percent" id="loaderPercent">0%</div>
+    <div class="loader-stage" id="loaderStage">connecting…</div>
+  </div>
+</div>
+
+<div class="app" id="dashboard" style="display:none;">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">LIA</div>
+      <div>
+        <h1>Corporate Project Dashboard</h1>
+        <div class="sub">Corporate Offices · Live</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="downloadDump('today')">📥 Today's Dump</button>
+      <button class="btn btn-accent" onclick="downloadDump('all')">📊 Full Dump</button>
+    </div>
+  </div>
+
+  <div class="kpi-split">
+    <div class="kpi-block">
+      <div class="kpi-block-head"><h3>📊 Lifetime Overview</h3><span class="pill">ALL TIME</span></div>
+      <div class="kpi-mini-grid" id="kpiLifetime"></div>
+    </div>
+    <div class="kpi-block">
+      <div class="kpi-block-head"><h3>📅 Today's Overview</h3><span class="pill today" id="todayLabel">TODAY</span></div>
+      <div class="kpi-mini-grid" id="kpiToday"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card"><h3>📈 Verified Visits by Month</h3><div class="chart-wrap"><canvas id="chartVisits"></canvas></div></div>
+    <div class="chart-card"><h3>🎯 Visit Outcomes</h3><div class="chart-wrap"><canvas id="chartOutcome"></canvas></div></div>
+    <div class="chart-card"><h3>🏭 Top Industries (Overall)</h3><div class="chart-wrap"><canvas id="chartIndustryAll"></canvas></div></div>
+    <div class="chart-card"><h3>🏭 Top Industries (Verified)</h3><div class="chart-wrap"><canvas id="chartIndustryVer"></canvas></div></div>
+    <div class="chart-card"><h3>🌆 Top Cities (Overall)</h3><div class="chart-wrap"><canvas id="chartCityAll"></canvas></div></div>
+    <div class="chart-card"><h3>🌆 Top Cities (Verified)</h3><div class="chart-wrap"><canvas id="chartCityVer"></canvas></div></div>
+  </div>
+
+  <div class="map-card">
+    <div class="map-head">
+      <h3>📍 Office Map</h3>
+      <div class="map-filters">
+        <button class="map-filter-btn active" id="mapFilterAll" onclick="setMapFilter('all')">All</button>
+        <button class="map-filter-btn green" id="mapFilterVerified" onclick="setMapFilter('verified')">Verified</button>
+        <button class="map-filter-btn gray" id="mapFilterUnverified" onclick="setMapFilter('unverified')">Unverified</button>
+      </div>
+    </div>
+    <div class="map-legend">
+      <span><span class="legend-dot green"></span>Verified</span>
+      <span><span class="legend-dot gray"></span>Unverified</span>
+    </div>
+    <div class="map-container" id="map"></div>
+  </div>
+
+  <div class="table-card">
+    <h3>🏢 Corporate Visit Detail</h3>
+    <div class="filter-bar">
+      <select id="filterRegion"><option value="all">All Regions</option></select>
+      <select id="filterIndustry"><option value="all">All Industries</option></select>
+      <select id="filterOutcome"><option value="all">All Outcomes</option></select>
+      <select id="filterVerified">
+        <option value="all">All Status</option><option value="yes">Verified</option><option value="no">Unverified</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="Search company / audit ID / SDE / city…">
+      <button class="btn-sm" onclick="resetFilters()">Reset</button>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Photo</th><th>Company</th><th>Industry</th><th>Office Hub</th><th>City</th><th>State</th>
+            <th>Outcome</th><th>Contact</th><th>Designation</th><th>Phone</th><th>Site Strength</th>
+            <th>SDE</th><th>Visit Date</th><th>Next Action</th><th>Geofence</th><th>Verified</th><th>Audit ID</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<div class="modal" id="imgModal" onclick="closeModal()">
+  <span class="modal-close">&times;</span>
+  <img id="modalImg" src="" alt="preview">
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SHEET_ID = '1Y5FokLa5W0w5Gyt42GwZJonfOAkePtZCh5RpuggpPK0';
+const SHEETS = [
+  { name: 'Sheet1',       alias: 'Main'   },
+  { name: 'Visit_Output', alias: 'Output' }
+];
+const CLOSED_OUTCOMES = ['not relevant', 'closed', 'converted', 'lost'];
+const INDIA = { latMin: 6, latMax: 37.5, lngMin: 68, lngMax: 98 };
+const PAGE_SIZE = 50;
+
+// ============================================================
+// STATE
+// ============================================================
+let allRows = [], filteredRows = [], currentPage = 1;
+let map, mapMarkers = [], currentMapFilter = 'all';
+let charts = {};
+let loadedSheets = {}, sheetIndex = 0, activeScript = null, activeTimeout = null;
+let TODAY_KEY = '';
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+
+// ============================================================
+// LOADER
+// ============================================================
+function setProgress(pct, msg, isError) {
+  pct = Math.min(100, Math.round(pct));
+  $('loaderBarFill').style.width = pct + '%';
+  $('loaderPercent').textContent = pct + '%';
+  if (msg) {
+    $('loaderStage').textContent = msg;
+    $('loaderStage').className = 'loader-stage' + (isError ? ' loader-error' : '');
+  }
+}
+
+function cleanupLoader() {
+  if (activeScript) { activeScript.remove(); activeScript = null; }
+  if (activeTimeout) { clearTimeout(activeTimeout); activeTimeout = null; }
+}
+
+function startLoading() {
+  cleanupLoader();
+  loadedSheets = {};
+  sheetIndex = 0;
+  setProgress(2, 'connecting…');
+  loadNextSheet();
+}
+
+function loadNextSheet() {
+  cleanupLoader();
+  if (sheetIndex >= SHEETS.length) {
+    setProgress(95, 'merging data…');
+    try { mergeAll(); } catch (e) { console.error('merge error', e); }
+    setProgress(100, 'ready ✓');
+    setTimeout(() => {
+      $('loaderOverlay').classList.add('hide');
+      $('dashboard').style.display = 'block';
+      renderAll();
+    }, 400);
+    return;
+  }
+
+  const sh = SHEETS[sheetIndex];
+  setProgress(5 + (sheetIndex / SHEETS.length) * 85, `loading "${sh.name}"…`);
+
+  activeTimeout = setTimeout(() => {
+    loadedSheets[sh.alias] = loadedSheets[sh.alias] || [];
+    sheetIndex++;
+    setProgress(5 + (sheetIndex / SHEETS.length) * 85, `timeout: ${sh.name}`, true);
+    loadNextSheet();
+  }, 12000);
+
+  activeScript = document.createElement('script');
+  activeScript.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+    '/gviz/tq?sheet=' + encodeURIComponent(sh.name) + '&headers=1' +
+    '&tqx=responseHandler:handleSheetData&cacheBust=' + Date.now();
+  activeScript.onerror = function () {
+    cleanupLoader();
+    loadedSheets[sh.alias] = loadedSheets[sh.alias] || [];
+    sheetIndex++;
+    setProgress(5 + (sheetIndex / SHEETS.length) * 85, `error: ${sh.name}`, true);
+    setTimeout(loadNextSheet, 80);
+  };
+  document.body.appendChild(activeScript);
+}
+
+window.handleSheetData = function (response) {
+  cleanupLoader();
+  const sh = SHEETS[sheetIndex];
+  try {
+    const rows = parseGviz(response);
+    loadedSheets[sh.alias] = rows;
+    setProgress(5 + ((sheetIndex + 1) / SHEETS.length) * 85, `✓ ${sh.name} (${rows.length} rows)`);
+  } catch (e) {
+    console.error('parse error', sh.name, e);
+    loadedSheets[sh.alias] = [];
+    setProgress(5 + ((sheetIndex + 1) / SHEETS.length) * 85, `parse error: ${sh.name}`, true);
+  }
+  sheetIndex++;
+  setTimeout(loadNextSheet, 80);
+};
+
+function parseGviz(resp) {
+  if (!resp || !resp.table) return [];
+  const cellText = cell => {
+    if (!cell) return '';
+    if (cell.f != null && cell.f !== '') return String(cell.f);
+    return cell.v != null ? String(cell.v) : '';
+  };
+  let srcRows = resp.table.rows || [];
+  let cols = resp.table.cols.map(c => (c.label || '').trim());
+
+  // If Google failed to detect the header row, the real headers are the first data row
+  if (cols.length && cols.every(c => c === '') && srcRows.length) {
+    const first = (srcRows[0].c || []).map(cell => cellText(cell).trim());
+    cols = resp.table.cols.map((c, i) => first[i] || c.id || ('COL' + i));
+    srcRows = srcRows.slice(1);
+  } else {
+    cols = cols.map((c, i) => c || resp.table.cols[i].id || ('COL' + i));
+  }
+
+  return srcRows.map(r => {
+    const obj = {};
+    (r.c || []).forEach((cell, i) => {
+      const key = cols[i] || ('COL' + i);
+      let v = '';
+      if (cell) {
+        if (cell.f != null && cell.f !== '') v = cell.f;
+        else if (cell.v != null) v = cell.v;
+      }
+      obj[key] = v;
+    });
+    return obj;
+  }).filter(r => Object.values(r).some(v => String(v).trim() !== ''));
+}
+
+// ============================================================
+// NORMALISATION
+// ============================================================
+const BAD_VALUES = ['', '-', '.', '#N/A', '#VALUE!', 'null', 'undefined'];
+
+function pick(obj, names) {
+  for (const n of names) {
+    const key = Object.keys(obj).find(k => k.trim().toLowerCase() === n.trim().toLowerCase());
+    if (key !== undefined) {
+      const v = String(obj[key] ?? '').trim();
+      if (!BAD_VALUES.includes(v)) return v;
+    }
+  }
+  return '';
+}
+
+function parseNumber(v) {
+  if (v == null) return 0;
+  const s = String(v).replace(/,/g, '').replace(/[^0-9.\-]/g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// Visit Date is MM/DD/YYYY in the sheet; ISO is accepted too
+function toISO(v) {
+  const s = String(v || '').trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    let mo = +m[1], d = +m[2];
+    if (mo > 12) { mo = +m[2]; d = +m[1]; }   // handles DD/MM when unambiguous
+    return `${m[3]}-${pad(mo)}-${pad(d)}`;
+  }
+  return '';
+}
+
+function normalizeRow(r, src) {
+  const g = names => pick(r, names);
+  const contacts = [g(['Contact Person']), g(['Contact Person 2']), g(['Contact Person 3'])]
+    .filter(Boolean).length;
+  return {
+    _src: src,
+    company:     g(['Company / Account', 'Company Name', 'Company']),
+    region:      g(['Region']) || 'Unassigned',
+    industry:    g(['Industry']) || 'Unspecified',
+    hub:         g(['Office Hub / Campus', 'Office Hub']),
+    address:     g(['Prospect Address']),
+    city:        g(['City']) || 'Unknown',
+    state:       g(['State']) || 'Unknown',
+    lat:         g(['Lat']),
+    long:        g(['Long']),
+    strength:    parseNumber(g(['Estimated Site Strength'])),
+    sde:         g(['SDE Name']),
+    outcome:     g(['Visit Result', 'Status']) || 'Not recorded',
+    pantry:      g(['Pantry/ Cafeteria Run By', 'Pantry Cafeteria Run By']),
+    contact:     g(['Contact Person']),
+    designation: g(['Designation']),
+    phone:       g(['Number']),
+    email:       g(['Email ID']),
+    remarks:     g(['Remarks']),
+    closure:     g(['Closure Note']),
+    verified:    g(['Verified']),
+    auditId:     g(['Audit ID', 'Audit_ID']),
+    visitDate:   toISO(g(['Visit Date ISO', 'Visit Date'])),
+    nextAction:  toISO(g(['Next Action Date ISO', 'Next Action Date'])),
+    submission:  g(['Submission Time']),
+    geofence:    g(['Geofence Status']),
+    distance:    parseNumber(g(['Distance (Meters)', 'Distance'])),
+    photo:       g(['Office Photo Link', 'Photo']),
+    contacts,
+    floor:       g(['Floor Number']),
+    cafeterias:  parseNumber(g(['Number of Cafeterias/Pantries'])),
+    tuckShop:    g(['Tuck Shop Available']),
+    tuckOwner:   g(['Tuck Shop Owner Name']),
+    tuckPhone:   g(['Tuck Shop Owner Number'])
+  };
+}
+
+const isVerified = r => /^y(es)?$/i.test(String(r.verified).trim());
+const isWithinGeofence = r => /^within/i.test(String(r.geofence).trim());
+const isFollowUpDue = r => !!r.nextAction && r.nextAction <= TODAY_KEY &&
+  !CLOSED_OUTCOMES.includes(String(r.outcome).toLowerCase().trim());
+
+function mergeAll() {
+  const main = (loadedSheets.Main || []).map(r => normalizeRow(r, 'Main')).filter(r => r.company);
+  const out  = (loadedSheets.Output || []).map(r => normalizeRow(r, 'Output')).filter(r => r.company);
+
+  // Sheet1 is primary; Visit_Output rows are added only when their Audit ID is not already present
+  const seen = new Set();
+  const merged = [];
+  [...main, ...out].forEach(r => {
+    const key = r.auditId ? r.auditId.toLowerCase() : '';
+    if (key) {
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
+    merged.push(r);
+  });
+  // Values that differ only by letter case or extra spaces (e.g. "IT" and "it") count as one
+  ['industry', 'city', 'state', 'region', 'outcome'].forEach(field => {
+    const label = {};
+    merged.forEach(r => {
+      const raw = String(r[field] || '').replace(/\s+/g, ' ').trim();
+      const key = raw.toLowerCase();
+      if (!label[key]) label[key] = raw;   // first spelling seen becomes the label
+      r[field] = label[key];
+    });
+  });
+
+  allRows = merged;
+  console.log('Merged corporate rows:', allRows.length);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll() {
+  buildFilters();
+  applyFilters();
+  renderKPIs();
+  renderCharts();
+  initMap();
+}
+
+function renderKPIs() {
+  kpiBlock('kpiLifetime', allRows);
+  kpiBlock('kpiToday', allRows.filter(r => r.visitDate === TODAY_KEY));
+  const fmt = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  $('todayLabel').textContent = 'TODAY · ' + fmt;
+}
+
+function kpiBlock(id, rows) {
+  const verified = rows.filter(isVerified).length;
+  const cards = [
+    ['',       'Prospects',        rows.length],
+    ['green',  'Verified',         verified],
+    ['orange', 'Unverified',       rows.length - verified],
+    ['teal',   'Within 500 m',     rows.filter(isWithinGeofence).length],
+    ['purple', 'Contacts Logged',  rows.reduce((s, r) => s + r.contacts, 0)],
+    ['',       'Tuck Shops',       rows.filter(r => /^y/i.test(r.tuckShop)).length],
+    ['green',  'Site Strength',    rows.reduce((s, r) => s + r.strength, 0).toLocaleString('en-IN')],
+    ['red',    'Follow-ups Due',   rows.filter(isFollowUpDue).length]
+  ];
+  $(id).innerHTML = cards.map(([c, l, v]) =>
+    `<div class="kpi-mini ${c}"><h4>${l}</h4><div class="value">${v}</div></div>`).join('');
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+// Draws "count (percent%)" on every bar and doughnut slice
+Chart.register({
+  id: 'valueLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const isDoughnut = chart.config.type === 'doughnut';
+    const horizontal = chart.options.indexAxis === 'y';
+    ctx.save();
+    ctx.font = '700 11px system-ui, Segoe UI, Arial';
+    chart.data.datasets.forEach((ds, di) => {
+    const values = ds.data.map(v => Number(v) || 0);
+    const total = values.reduce((a, b) => a + b, 0);
+    if (!total) return;
+    chart.getDatasetMeta(di).data.forEach((el, i) => {
+      const v = values[i];
+      if (!v) return;
+      const label = v + ' (' + (v / total * 100).toFixed(1) + '%)';
+      if (isDoughnut) {
+        if (v / total < 0.06) return;          // slice too small for a label
+        const c = el.getCenterPoint();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, c.x, c.y);
+      } else if (horizontal) {
+        ctx.fillStyle = '#1e1b4b';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, el.x + 6, el.y);
+      } else {
+        ctx.fillStyle = '#1e1b4b';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, el.x, el.y - 4);
+      }
+    });
+    });
+    ctx.restore();
+  }
+});
+
+function countBy(rows, fn) {
+  const m = {};
+  rows.forEach(r => { const k = fn(r); if (k) m[k] = (m[k] || 0) + 1; });
+  return m;
+}
+function topEntries(m, n) {
+  return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+function makeChart(key, id, cfg) {
+  if (charts[key]) charts[key].destroy();
+  charts[key] = new Chart($(id), cfg);
+}
+
+function renderCharts() {
+  const commonOpts = { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22, right: 60 } }, plugins: { legend: { display: false } } };
+
+  // Verified visits by date
+  // Grouped by month (YYYY-MM) so the bars and their labels stay readable
+  const byMonth = countBy(allRows.filter(isVerified), r => r.visitDate.slice(0, 7));
+  const dLabels = Object.keys(byMonth).sort();
+  makeChart('visits', 'chartVisits', {
+    type: 'bar',
+    data: { labels: dLabels, datasets: [{ label: 'Verified', data: dLabels.map(d => byMonth[d]), backgroundColor: '#4338ca', borderRadius: 6 }] },
+    options: { ...commonOpts, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+
+  // Outcomes
+  const outc = topEntries(countBy(allRows.filter(r => !/not contacted/i.test(r.outcome)), r => r.outcome), 8);
+  makeChart('outcome', 'chartOutcome', {
+    type: 'doughnut',
+    data: { labels: outc.map(x => x[0]), datasets: [{ data: outc.map(x => x[1]),
+      backgroundColor: ['#4338ca', '#2dd4bf', '#f59e0b', '#ef4444', '#8b5cf6', '#0891b2', '#94a3b8', '#16a34a'] }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+  });
+
+  // Industries
+  const hBarOpts = { ...commonOpts, indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } };
+  const indAll = topEntries(countBy(allRows, r => r.industry), 10);
+  makeChart('industryAll', 'chartIndustryAll', {
+    type: 'bar',
+    data: { labels: indAll.map(x => x[0]), datasets: [{ label: 'Overall', data: indAll.map(x => x[1]), backgroundColor: '#7c3aed', borderRadius: 6 }] },
+    options: hBarOpts
+  });
+  const indVer = topEntries(countBy(allRows.filter(isVerified), r => r.industry), 10);
+  makeChart('industryVer', 'chartIndustryVer', {
+    type: 'bar',
+    data: { labels: indVer.map(x => x[0]), datasets: [{ label: 'Verified', data: indVer.map(x => x[1]), backgroundColor: '#16a34a', borderRadius: 6 }] },
+    options: hBarOpts
+  });
+
+  // Cities
+  const vBarOpts = { ...commonOpts, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } };
+  const ctyAll = topEntries(countBy(allRows, r => r.city), 10);
+  makeChart('cityAll', 'chartCityAll', {
+    type: 'bar',
+    data: { labels: ctyAll.map(x => x[0]), datasets: [{ label: 'Overall', data: ctyAll.map(x => x[1]), backgroundColor: '#0891b2', borderRadius: 6 }] },
+    options: vBarOpts
+  });
+  const ctyVer = topEntries(countBy(allRows.filter(isVerified), r => r.city), 10);
+  makeChart('cityVer', 'chartCityVer', {
+    type: 'bar',
+    data: { labels: ctyVer.map(x => x[0]), datasets: [{ label: 'Verified', data: ctyVer.map(x => x[1]), backgroundColor: '#16a34a', borderRadius: 6 }] },
+    options: vBarOpts
+  });
+}
+
+// ============================================================
+// MAP
+// ============================================================
+function getCoords(r) {
+  const lat = parseFloat(r.lat), lng = parseFloat(r.long);
+  if (isNaN(lat) || isNaN(lng)) return null;
+  if (lat < INDIA.latMin || lat > INDIA.latMax || lng < INDIA.lngMin || lng > INDIA.lngMax) return null;
+  return { lat, lng };
+}
+
+function setMapFilter(f) {
+  currentMapFilter = f;
+  ['all', 'verified', 'unverified'].forEach(k => $('mapFilter' + k[0].toUpperCase() + k.slice(1)).classList.remove('active'));
+  $('mapFilter' + f[0].toUpperCase() + f.slice(1)).classList.add('active');
+  renderMapMarkers();
+}
+
+function renderMapMarkers() {
+  if (!map) return;
+  mapMarkers.forEach(m => map.removeLayer(m));
+  mapMarkers = [];
+  let rows = allRows;
+  if (currentMapFilter === 'verified') rows = rows.filter(isVerified);
+  if (currentMapFilter === 'unverified') rows = rows.filter(r => !isVerified(r));
+
+  const bounds = [];
+  rows.forEach(r => {
+    const c = getCoords(r);
+    if (!c) return;
+    const color = isVerified(r) ? '#16a34a' : '#94a3b8';
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
+      iconSize: [14, 14], iconAnchor: [7, 7]
+    });
+    const m = L.marker([c.lat, c.lng], { icon }).addTo(map);
+    m.bindPopup(
+      `<b>${esc(r.company)}</b><br>${esc(r.industry)} · ${esc(r.city)}<br>` +
+      `Outcome: ${esc(r.outcome)}<br>Verified: ${isVerified(r) ? 'Yes' : 'No'}<br>` +
+      `Site strength: ${esc(r.strength || '—')}<br>SDE: ${esc(r.sde || '—')}`
+    );
+    mapMarkers.push(m);
+    bounds.push([c.lat, c.lng]);
+  });
+  if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+}
+
+function initMap() {
+  if (map) map.remove();
+  map = L.map('map').setView([22.5, 79], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap'
+  }).addTo(map);
+  renderMapMarkers();
+}
+
+// ============================================================
+// FILTERS & TABLE
+// ============================================================
+function fillSelect(id, label, values) {
+  $(id).innerHTML = `<option value="all">${label}</option>` +
+    values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+}
+
+function buildFilters() {
+  const uniq = key => [...new Set(allRows.map(r => r[key]).filter(Boolean))].sort();
+  fillSelect('filterRegion', 'All Regions', uniq('region'));
+  fillSelect('filterIndustry', 'All Industries', uniq('industry'));
+  fillSelect('filterOutcome', 'All Outcomes', uniq('outcome'));
+}
+
+function applyFilters() {
+  currentPage = 1;
+  const region = $('filterRegion').value, ind = $('filterIndustry').value;
+  const out = $('filterOutcome').value, ver = $('filterVerified').value;
+  const q = $('filterSearch').value.toLowerCase().trim();
+
+  filteredRows = allRows.filter(r => {
+    if (region !== 'all' && r.region !== region) return false;
+    if (ind !== 'all' && r.industry !== ind) return false;
+    if (out !== 'all' && r.outcome !== out) return false;
+    if (ver === 'yes' && !isVerified(r)) return false;
+    if (ver === 'no' && isVerified(r)) return false;
+    if (q) {
+      const hay = [r.company, r.auditId, r.sde, r.city, r.hub, r.contact].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  // Newest visit first; rows without a visit date go to the bottom
+  filteredRows.sort((a, b) => (b.visitDate || '').localeCompare(a.visitDate || ''));
+  renderTable();
+}
+
+function resetFilters() {
+  ['filterRegion', 'filterIndustry', 'filterOutcome'].forEach(id => $(id).value = 'all');
+  $('filterVerified').value = 'all';
+  $('filterSearch').value = '';
+  applyFilters();
+}
+
+function getDriveImage(url) {
+  if (!url) return '';
+  const text = String(url).trim();
+  const m = text.match(/\/d\/([^/]+)/) || text.match(/[?&]id=([^&]+)/);
+  if (m && m[1]) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400';
+  return text;
+}
+
+function renderTable() {
+  const total = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = filteredRows.slice(start, start + PAGE_SIZE);
+
+  let html = '';
+  pageRows.forEach(r => {
+    const img = getDriveImage(r.photo);
+    const geo = r.geofence ? `<span class="badge ${isWithinGeofence(r) ? 'badge-yes' : 'badge-warn'}">${esc(r.geofence)}</span>` : '—';
+    html += '<tr>';
+    html += `<td>${img ? `<img class="photo-thumb" src="${esc(img)}" data-src="${esc(img)}" onclick="openModal(this.dataset.src)" loading="lazy">` : '<span class="no-photo">No Photo</span>'}</td>`;
+    html += `<td><b>${esc(r.company)}</b></td>`;
+    html += `<td>${esc(r.industry)}</td>`;
+    html += `<td>${esc(r.hub || '—')}</td>`;
+    html += `<td>${esc(r.city)}</td>`;
+    html += `<td>${esc(r.state)}</td>`;
+    html += `<td>${esc(r.outcome)}</td>`;
+    html += `<td>${esc(r.contact || '—')}</td>`;
+    html += `<td>${esc(r.designation || '—')}</td>`;
+    html += `<td>${esc(r.phone || '—')}</td>`;
+    html += `<td>${r.strength ? r.strength.toLocaleString('en-IN') : '—'}</td>`;
+    html += `<td>${esc(r.sde || '—')}</td>`;
+    html += `<td>${esc(r.visitDate || '—')}</td>`;
+    html += `<td>${esc(r.nextAction || '—')}${isFollowUpDue(r) ? ' <span class="badge badge-no">Due</span>' : ''}</td>`;
+    html += `<td>${geo}</td>`;
+    html += `<td>${isVerified(r) ? '<span class="badge badge-yes">Yes</span>' : '<span class="badge badge-no">No</span>'}</td>`;
+    html += `<td>${esc(r.auditId || '—')}</td>`;
+    html += '</tr>';
+  });
+
+  if (!html) {
+    html = '<tr><td colspan="17" style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">No visits found for the selected filters</td></tr>';
+  }
+  $('tableBody').innerHTML = html;
+  renderPagination(total, totalPages, start, pageRows.length);
+}
+
+function renderPagination(total, totalPages, start, count) {
+  const el = $('pagination');
+  if (total === 0) { el.innerHTML = ''; return; }
+  const pages = [];
+  const push = p => { if (p >= 1 && p <= totalPages && !pages.includes(p)) pages.push(p); };
+  [1, currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, totalPages].forEach(push);
+  pages.sort((a, b) => a - b);
+
+  let html = `<span>Showing ${start + 1}–${start + count} of ${total}</span>`;
+  html += `<button onclick="gotoPage(${Math.max(1, currentPage - 1)})">Prev</button>`;
+  pages.forEach((p, i) => {
+    if (i && p - pages[i - 1] > 1) html += '<span>…</span>';
+    html += `<button class="${p === currentPage ? 'active' : ''}" onclick="gotoPage(${p})">${p}</button>`;
+  });
+  html += `<button onclick="gotoPage(${Math.min(totalPages, currentPage + 1)})">Next</button>`;
+  el.innerHTML = html;
+}
+
+function gotoPage(p) {
+  currentPage = p;
+  renderTable();
+  document.querySelector('.table-scroll').scrollTop = 0;
+}
+
+// ============================================================
+// IMAGE MODAL
+// ============================================================
+function openModal(src) {
+  $('modalImg').src = src;
+  $('imgModal').classList.add('show');
+}
+function closeModal() {
+  $('imgModal').classList.remove('show');
+}
+
+// ============================================================
+// EXCEL DUMPS
+// ============================================================
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1e1b4b;color:#fff;' +
+    'padding:12px 22px;border-radius:40px;font-weight:700;font-size:.8rem;z-index:20000;box-shadow:0 10px 30px rgba(0,0,0,.35)';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 6000);
+}
+
+function sheetFromAOA(aoa) {
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = aoa[0].map((h, i) => {
+    let w = String(h).length;
+    aoa.slice(1, 60).forEach(r => { w = Math.max(w, String(r[i] ?? '').length); });
+    return { wch: Math.min(Math.max(w + 2, 10), 45) };
+  });
+  return ws;
+}
+
+function downloadDump(scope) {
+  if (typeof XLSX === 'undefined') {
+    alert('Excel library failed to load. Check your internet connection and refresh.');
+    return;
+  }
+  const todayOnly = scope === 'today';
+  const rows = todayOnly ? allRows.filter(r => r.visitDate === TODAY_KEY) : allRows;
+  const followUps = rows.filter(isFollowUpDue).sort((a, b) => a.nextAction.localeCompare(b.nextAction));
+
+  const visitHeaders = ['Company', 'Region', 'Industry', 'Office Hub', 'Prospect Address', 'City', 'State',
+    'Lat', 'Long', 'Estimated Site Strength', 'SDE', 'Outcome', 'Pantry Run By', 'Contact', 'Designation',
+    'Phone', 'Email', 'Contacts Logged', 'Remarks', 'Closure Note', 'Verified', 'Audit ID', 'Visit Date',
+    'Next Action Date', 'Geofence', 'Distance (m)', 'Photo Link', 'Floor', 'Cafeterias', 'Tuck Shop',
+    'Tuck Owner', 'Tuck Phone'];
+  const visitBody = rows.map(r => [
+    r.company, r.region, r.industry, r.hub, r.address, r.city, r.state,
+    parseFloat(r.lat) || '', parseFloat(r.long) || '', r.strength, r.sde, r.outcome, r.pantry,
+    r.contact, r.designation, String(r.phone || ''), r.email, r.contacts, r.remarks, r.closure,
+    isVerified(r) ? 'Yes' : 'No', r.auditId, r.visitDate, r.nextAction, r.geofence, r.distance,
+    r.photo, r.floor, r.cafeterias, r.tuckShop, r.tuckOwner, String(r.tuckPhone || '')
+  ]);
+
+  const fuHeaders = ['Company', 'City', 'Industry', 'Contact', 'Designation', 'Phone', 'Next Action Date',
+    'Outcome', 'Remarks', 'SDE', 'Audit ID'];
+  const fuBody = followUps.map(r => [
+    r.company, r.city, r.industry, r.contact, r.designation, String(r.phone || ''),
+    r.nextAction, r.outcome, r.remarks, r.sde, r.auditId
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheetFromAOA([visitHeaders].concat(visitBody)), 'Visits');
+  XLSX.utils.book_append_sheet(wb, sheetFromAOA([fuHeaders].concat(fuBody)), 'Follow_Ups');
+  XLSX.writeFile(wb, 'Corporate_LIA_' + (todayOnly ? 'Today_' + TODAY_KEY : 'Full') + '_Dump.xlsx');
+
+  if (visitBody.length === 0 && todayOnly) {
+    showToast('No visits found for today (' + TODAY_KEY + '). Try Full Dump.');
+  } else {
+    showToast('Downloaded · Visits ' + visitBody.length + ' · Follow-ups due ' + fuBody.length);
+  }
+}
+
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+window.addEventListener('load', function () {
+  const d = new Date();
+  TODAY_KEY = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+
+  ['filterRegion', 'filterIndustry', 'filterOutcome', 'filterVerified'].forEach(id =>
+    $(id).addEventListener('change', applyFilters));
+  $('filterSearch').addEventListener('input', applyFilters);
+
+  startLoading();
+});
+</script>
+</body>
+</html>
